@@ -47,15 +47,20 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
 
+    // 🔥 Firebase BOM (WAJIB & DISARANKAN)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+
+    // 🔐 Firebase Authentication (INI YANG KURANG)
+    implementation("com.google.firebase:firebase-auth-ktx")
+
     // Firebase Realtime Database
-        implementation("com.google.firebase:firebase-database-ktx:21.0.0")
+    implementation("com.google.firebase:firebase-database-ktx")
 
-    // Firebase Core
-        implementation("com.google.firebase:firebase-analytics-ktx:22.0.2")
+    // Firebase Analytics
+    implementation("com.google.firebase:firebase-analytics-ktx")
 
-    // 🗺 GOOGLE MAPS (WAJIB)
+    // 🗺 Google Maps
     implementation("com.google.android.gms:play-services-maps:18.2.0")
-
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
     // Testing
@@ -63,3 +68,4 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
+
