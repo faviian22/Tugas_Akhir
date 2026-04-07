@@ -49,6 +49,8 @@
         android:layout_height="wrap_content"
         android:hint="Masukkan Password"
         android:inputType="textPassword"
+        android:drawableEnd="@drawable/ic_eye_off"
+        android:drawablePadding="8dp"
         android:layout_marginBottom="24dp"/>
 
     <!-- Button Login -->

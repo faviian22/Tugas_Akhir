@@ -11,14 +11,14 @@ import com.google.firebase.database.FirebaseDatabase
 
 class RegisterActivity : AppCompatActivity() {
 
-    // Firebase Authentication
     private lateinit var auth: FirebaseAuth
+    private val database = FirebaseDatabase.getInstance().reference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
 
-        // Inisialisasi Firebase Auth
+        // Inisialisasi Firebase Authentication
         auth = FirebaseAuth.getInstance()
 
         // Komponen UI
@@ -26,10 +26,13 @@ class RegisterActivity : AppCompatActivity() {
         val etEmail = findViewById<EditText>(R.id.etEmail)
         val etPassword = findViewById<EditText>(R.id.etPassword)
         val etConfirmPassword = findViewById<EditText>(R.id.etConfirmPassword)
+
         val btnDaftar = findViewById<Button>(R.id.btnDaftar)
         val tvLogin = findViewById<TextView>(R.id.tvLogin)
 
-        // ==================== TOMBOL DAFTAR ====================
+        // ===============================
+        // TOMBOL DAFTAR
+        // ===============================
         btnDaftar.setOnClickListener {
 
             val nama = etNama.text.toString().trim()
@@ -53,35 +56,56 @@ class RegisterActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // ==================== REGISTER KE FIREBASE AUTH ====================
+            // ===============================
+            // REGISTER KE FIREBASE AUTH
+            // ===============================
             auth.createUserWithEmailAndPassword(email, password)
-                .addOnSuccessListener { result ->
+                .addOnCompleteListener { task ->
 
-                    // Ambil UID user dari Authentication
-                    val userId = result.user?.uid ?: return@addOnSuccessListener
+                    if (task.isSuccessful) {
 
-                    // Simpan data tambahan (nama) ke Realtime Database
-                    val database = FirebaseDatabase.getInstance().reference
-                    val userData = HashMap<String, String>()
-                    userData["nama"] = nama
-                    userData["email"] = email
+                        val userId = auth.currentUser?.uid ?: return@addOnCompleteListener
 
-                    database.child("users").child(userId)
-                        .setValue(userData)
-                        .addOnSuccessListener {
-                            Toast.makeText(this, "Akun berhasil dibuat", Toast.LENGTH_SHORT).show()
-                            finish()
-                        }
-                        .addOnFailureListener {
-                            Toast.makeText(this, "Gagal menyimpan data tambahan", Toast.LENGTH_SHORT).show()
-                        }
-                }
-                .addOnFailureListener {
-                    Toast.makeText(this, it.message, Toast.LENGTH_SHORT).show()
+                        // Data tambahan user
+                        val userMap = HashMap<String, Any>()
+                        userMap["nama"] = nama
+                        userMap["email"] = email
+
+                        // Simpan ke Realtime Database
+                        database.child("users").child(userId).setValue(userMap)
+                            .addOnSuccessListener {
+
+                                Toast.makeText(
+                                    this,
+                                    "Akun berhasil dibuat",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+
+                                finish()
+                            }
+                            .addOnFailureListener {
+
+                                Toast.makeText(
+                                    this,
+                                    "Gagal menyimpan data user",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+
+                    } else {
+
+                        Toast.makeText(
+                            this,
+                            task.exception?.message,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
         }
 
-        // ==================== PINDAH KE LOGIN ====================
+        // ===============================
+        // PINDAH KE LOGIN
+        // ===============================
         tvLogin.setOnClickListener {
             finish()
         }

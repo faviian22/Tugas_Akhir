@@ -1,12 +1,13 @@
 package com.example.tugasakhir
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -19,9 +20,15 @@ import com.google.firebase.database.*
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
-    private lateinit var marker: Marker
     private lateinit var database: DatabaseReference
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var marker: Marker? = null
+
+    private lateinit var tvLokasi: TextView
+    private lateinit var tvWaktu: TextView
+
+    private lateinit var btnLokasi: ImageView
+    private lateinit var btnHistori: ImageView
+    private lateinit var btnProfil: ImageView
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST = 100
@@ -31,28 +38,51 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Koneksi ke Firebase Realtime Database
-        database = FirebaseDatabase.getInstance().reference
+        // TextView
+        tvLokasi = findViewById(R.id.tvLokasi)
+        tvWaktu = findViewById(R.id.tvWaktu)
 
-        // Inisialisasi GPS perangkat
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        // Button Menu
+        btnLokasi = findViewById(R.id.btnLokasi)
+        btnHistori = findViewById(R.id.btnHistori)
+        btnProfil = findViewById(R.id.btnProfil)
 
-        // Load Google Maps
+        // Firebase
+        database = FirebaseDatabase.getInstance().getReference("gps")
+
+        // Map Fragment
         val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
+            .findFragmentById(R.id.map) as? SupportMapFragment
 
-        mapFragment.getMapAsync(this)
+        mapFragment?.getMapAsync(this)
+
+        // =========================
+        // Navigasi Menu Bawah
+        // =========================
+
+        btnLokasi.setOnClickListener {
+            recreate()
+        }
+
+        btnHistori.setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }
+
+        btnProfil.setOnClickListener {
+            startActivity(Intent(this, ProfileActivity::class.java))
+        }
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
+
         mMap = googleMap
 
-        // Cek izin lokasi
         if (ActivityCompat.checkSelfPermission(
                 this,
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
@@ -63,21 +93,66 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         mMap.isMyLocationEnabled = true
 
-        // Posisi awal default (agar marker selalu ada)
-        val posisiAwal = LatLng(-7.4, 112.7)
-        marker = mMap.addMarker(
-            MarkerOptions().position(posisiAwal).title("Lokasi Kendaraan")
-        )!!
+        val posisiAwal = LatLng(-7.0, 110.0)
 
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(posisiAwal, 15f))
+        mMap.moveCamera(
+            CameraUpdateFactory.newLatLngZoom(posisiAwal, 6f)
+        )
 
-        // Mulai baca lokasi realtime dari Firebase
         listenGPSRealtime()
+    }
+
+    // ===============================
+    // Membaca GPS dari Firebase
+    // ===============================
+
+    private fun listenGPSRealtime() {
+
+        database.addValueEventListener(object : ValueEventListener {
+
+            override fun onDataChange(snapshot: DataSnapshot) {
+
+                val lat = snapshot.child("latitude").getValue(Double::class.java)
+                val lng = snapshot.child("longitude").getValue(Double::class.java)
+
+                val lokasi = snapshot.child("namaTempat").value?.toString() ?: "-"
+                val waktu = snapshot.child("waktu").value?.toString() ?: "-"
+
+                if (lat != null && lng != null) {
+
+                    val posisi = LatLng(lat, lng)
+
+                    if (marker == null) {
+
+                        marker = mMap.addMarker(
+                            MarkerOptions()
+                                .position(posisi)
+                                .title("Lokasi Kendaraan")
+                        )
+
+                    } else {
+
+                        marker?.position = posisi
+                    }
+
+                    mMap.animateCamera(
+                        CameraUpdateFactory.newLatLngZoom(posisi, 17f)
+                    )
+
+                    tvLokasi.text = lokasi
+                    tvWaktu.text = "Sejak $waktu"
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                println("Firebase Error: ${error.message}")
+            }
+        })
     }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<out String>,
+        permissions: Array<String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -88,34 +163,5 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         ) {
             recreate()
         }
-    }
-
-    // Membaca lokasi realtime dari Firebase
-    private fun listenGPSRealtime() {
-
-        database.child("gps")
-            .addValueEventListener(object : ValueEventListener {
-
-                override fun onDataChange(snapshot: DataSnapshot) {
-
-                    val lat = snapshot.child("latitude").getValue(Double::class.java)
-                    val lng = snapshot.child("longitude").getValue(Double::class.java)
-
-                    if (lat != null && lng != null && ::marker.isInitialized) {
-
-                        val posisi = LatLng(lat, lng)
-
-                        // Update marker
-                        marker.position = posisi
-
-                        // Kamera mengikuti kendaraan
-                        mMap.animateCamera(
-                            CameraUpdateFactory.newLatLngZoom(posisi, 16f)
-                        )
-                    }
-                }
-
-                override fun onCancelled(error: DatabaseError) {}
-            })
     }
 }
