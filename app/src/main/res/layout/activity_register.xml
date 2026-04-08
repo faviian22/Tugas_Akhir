@@ -14,15 +14,6 @@
         android:textStyle="bold"
         android:layout_marginBottom="24dp"/>
 
-    <!-- Nama -->
-    <EditText
-        android:id="@+id/etNama"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Masukkan Nama"
-        android:inputType="textPersonName"
-        android:layout_marginBottom="12dp"/>
-
     <!-- Email -->
     <EditText
         android:id="@+id/etEmail"

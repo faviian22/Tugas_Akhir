@@ -22,7 +22,6 @@ class RegisterActivity : AppCompatActivity() {
         auth = FirebaseAuth.getInstance()
 
         // Komponen UI
-        val etNama = findViewById<EditText>(R.id.etNama)
         val etEmail = findViewById<EditText>(R.id.etEmail)
         val etPassword = findViewById<EditText>(R.id.etPassword)
         val etConfirmPassword = findViewById<EditText>(R.id.etConfirmPassword)
@@ -35,13 +34,12 @@ class RegisterActivity : AppCompatActivity() {
         // ===============================
         btnDaftar.setOnClickListener {
 
-            val nama = etNama.text.toString().trim()
             val email = etEmail.text.toString().trim()
             val password = etPassword.text.toString().trim()
             val confirmPassword = etConfirmPassword.text.toString().trim()
 
             // Validasi input
-            if (nama.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+            if (email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
                 Toast.makeText(this, "Semua data harus diisi", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
@@ -66,25 +64,21 @@ class RegisterActivity : AppCompatActivity() {
 
                         val userId = auth.currentUser?.uid ?: return@addOnCompleteListener
 
-                        // Data tambahan user
+                        // Simpan email & password di Realtime Database
                         val userMap = HashMap<String, Any>()
-                        userMap["nama"] = nama
                         userMap["email"] = email
+                        userMap["password"] = password
 
-                        // Simpan ke Realtime Database
                         database.child("users").child(userId).setValue(userMap)
                             .addOnSuccessListener {
-
                                 Toast.makeText(
                                     this,
                                     "Akun berhasil dibuat",
                                     Toast.LENGTH_SHORT
                                 ).show()
-
                                 finish()
                             }
                             .addOnFailureListener {
-
                                 Toast.makeText(
                                     this,
                                     "Gagal menyimpan data user",
@@ -93,7 +87,6 @@ class RegisterActivity : AppCompatActivity() {
                             }
 
                     } else {
-
                         Toast.makeText(
                             this,
                             task.exception?.message,

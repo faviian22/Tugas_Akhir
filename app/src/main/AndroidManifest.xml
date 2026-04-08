@@ -27,16 +27,14 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="@string/google_maps_key" />
 
-        <!-- LOGIN (HALAMAN PERTAMA APLIKASI) -->
+        <!-- LOGIN (HALAMAN PERTAMA) -->
         <activity
             android:name=".LoginActivity"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-
         </activity>
 
         <!-- REGISTER -->
@@ -57,6 +55,11 @@
         <!-- PROFILE -->
         <activity
             android:name=".ProfileActivity"
+            android:exported="false" />
+
+        <!-- ✅ EDIT PROFILE (WAJIB ADA) -->
+        <activity
+            android:name=".EditProfileActivity"
             android:exported="false" />
 
     </application>
