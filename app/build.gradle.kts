@@ -36,36 +36,36 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    buildFeatures {
+        viewBinding = true
+    }
 }
 
 dependencies {
 
-    // AndroidX
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
 
-    // 🔥 Firebase BOM (WAJIB & DISARANKAN)
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
 
-    // 🔐 Firebase Authentication (INI YANG KURANG)
+    // Authentication
     implementation("com.google.firebase:firebase-auth-ktx")
 
-    // Firebase Realtime Database
+    // Realtime Database
     implementation("com.google.firebase:firebase-database-ktx")
 
-    // Firebase Analytics
+    // Analytics (opsional tapi bagus)
     implementation("com.google.firebase:firebase-analytics-ktx")
 
-    // 🗺 Google Maps
+    // 🗺 GOOGLE MAPS + GPS
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
-    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-

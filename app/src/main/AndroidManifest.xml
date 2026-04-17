@@ -2,15 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- PERMISSION INTERNET -->
+    <!-- Internet -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- PERMISSION NETWORK -->
+    <!-- Network -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- PERMISSION LOCATION -->
+    <!-- Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Notifikasi Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- (Opsional tapi bagus untuk GPS lebih stabil) -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
 
     <application
         android:allowBackup="true"
@@ -25,7 +31,7 @@
         <!-- GOOGLE MAPS API KEY -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_key" />
+            android:value="AIzaSyD3XFQROY9JGirVooSGoONEflEkW0GeUz0" />
 
         <!-- LOGIN (HALAMAN PERTAMA) -->
         <activity
@@ -57,10 +63,17 @@
             android:name=".ProfileActivity"
             android:exported="false" />
 
-        <!-- ✅ EDIT PROFILE (WAJIB ADA) -->
+        <!-- EDIT PROFILE -->
         <activity
             android:name=".EditProfileActivity"
             android:exported="false" />
+
+        <!-- SERVICE (BACKGROUND) -->
+        <service
+            android:name=".CrashService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
     </application>
 
