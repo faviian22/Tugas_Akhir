@@ -1,6 +1,9 @@
 package com.example.tugasakhir
 
-import android.app.*
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
@@ -11,31 +14,24 @@ import com.google.firebase.database.*
 class CrashService : Service() {
 
     private lateinit var database: DatabaseReference
-    private var lastStatus: String? = null
+    private var lastStatus = false
 
     override fun onCreate() {
         super.onCreate()
-
         database = FirebaseDatabase.getInstance().getReference("sensor")
-
-        try {
-            startMyForegroundService()
-            listenCrash()
-        } catch (e: Exception) {
-            Log.e("CrashService", "Error: ${e.message}")
-        }
     }
 
-    // 🔥 WAJIB untuk stabilitas service
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startMyForeground()
+        Log.d("SERVICE", "SERVICE JALAN")
+        listenCrash()
         return START_STICKY
     }
 
-    private fun startMyForegroundService() {
-
+    @Suppress("ForegroundServiceType")
+    private fun startMyForeground() {
         val channelId = "SERVICE_CHANNEL"
-
-        val manager = getSystemService(NotificationManager::class.java)
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -47,8 +43,8 @@ class CrashService : Service() {
         }
 
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Monitoring Kendaraan")
-            .setContentText("Service aktif berjalan...")
+            .setContentTitle("Monitoring aktif")
+            .setContentText("Service berjalan...")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .build()
@@ -56,52 +52,32 @@ class CrashService : Service() {
         startForeground(1, notification)
     }
 
-    // =========================
-    // LISTEN FIREBASE
-    // =========================
     private fun listenCrash() {
-
         database.addValueEventListener(object : ValueEventListener {
-
             override fun onDataChange(snapshot: DataSnapshot) {
 
-                try {
-                    val status = snapshot.child("status")
-                        .getValue(String::class.java)
+                val vibration = snapshot.child("vibration").value?.toString() ?: ""
+                val crash = vibration.contains("VIBRATION", true)
 
-                    val lat = snapshot.child("latitude")
-                        .getValue(Double::class.java)
+                Log.d("SERVICE", "DATA: $vibration")
 
-                    val lng = snapshot.child("longitude")
-                        .getValue(Double::class.java)
-
-                    if (status == null || lat == null || lng == null) return
-
-                    // 🔥 Anti spam notifikasi
-                    if ((status == "jatuh" || status == "tabrakan") && status != lastStatus) {
-                        showCrashNotification(lat, lng)
-                    }
-
-                    lastStatus = status
-
-                } catch (e: Exception) {
-                    Log.e("CrashService", "Firebase Error: ${e.message}")
+                if (crash && !lastStatus) {
+                    Log.d("SERVICE", "KIRIM NOTIF")
+                    sendNotification()
                 }
+
+                lastStatus = crash
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("CrashService", "DB Error: ${error.message}")
+                Log.e("SERVICE", error.message)
             }
         })
     }
 
-    // =========================
-    // NOTIFIKASI
-    // =========================
-    private fun showCrashNotification(lat: Double, lng: Double) {
-
+    private fun sendNotification() {
         val channelId = "CRASH_CHANNEL"
-        val manager = getSystemService(NotificationManager::class.java)
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -112,29 +88,34 @@ class CrashService : Service() {
             manager.createNotificationChannel(channel)
         }
 
-        val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra("lat", lat)
-            putExtra("lng", lng)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        val prefs = getSharedPreferences("USER_SESSION", MODE_PRIVATE)
+        val isLogin = prefs.getBoolean("isLogin", false)
+
+        val intent = if (isLogin) {
+            Intent(this, MainActivity::class.java)
+        } else {
+            Intent(this, LoginActivity::class.java)
         }
+
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
 
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            System.currentTimeMillis().toInt(), // penting biar tidak reuse
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("🚨 TERJADI BENTURAN!")
-            .setContentText("Klik untuk melihat lokasi kejadian")
+            .setContentTitle("🚨 GETARAN TERDETEKSI!")
+            .setContentText("Segera cek kendaraan!")
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
         manager.notify(999, notification)
     }
-
     override fun onBind(intent: Intent?): IBinder? = null
 }

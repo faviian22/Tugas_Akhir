@@ -6,18 +6,14 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
 
 class EditProfileActivity : AppCompatActivity() {
 
     private lateinit var etEmail: EditText
     private lateinit var etPassword: EditText
     private lateinit var btnTogglePassword: ImageView
-    private lateinit var btnSimpan: Button
-    private lateinit var btnBatal: Button
-    private lateinit var btnBack: ImageView
-
     private lateinit var auth: FirebaseAuth
     private lateinit var database: DatabaseReference
     private var userId: String? = null
@@ -27,56 +23,34 @@ class EditProfileActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_profile)
 
-        // Binding
-        etEmail = findViewById(R.id.etEmail)
-        etPassword = findViewById(R.id.etPassword)
+        etEmail          = findViewById(R.id.etEmail)
+        etPassword       = findViewById(R.id.etPassword)
         btnTogglePassword = findViewById(R.id.btnTogglePassword)
-        btnSimpan = findViewById(R.id.btnSimpan)
-        btnBatal = findViewById(R.id.btnBatal)
-        btnBack = findViewById(R.id.btnBack)
+        auth             = FirebaseAuth.getInstance()
+        database         = FirebaseDatabase.getInstance().getReference("users")
+        userId           = auth.currentUser?.uid
 
-        auth = FirebaseAuth.getInstance()
-        database = FirebaseDatabase.getInstance().getReference("users")
-
-        val user = auth.currentUser
-        userId = user?.uid
-
-        // Ambil data user dari Realtime Database
-        if (userId != null) {
-            database.child(userId!!).get().addOnSuccessListener { snapshot ->
-                if (snapshot.exists()) {
-                    val email = snapshot.child("email").getValue(String::class.java)
-                    val password = snapshot.child("password").getValue(String::class.java)
-
-                    etEmail.setText(email ?: "")
-                    etPassword.setText(password ?: "")
-                    etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
-                } else {
-                    Toast.makeText(this, "Data user tidak ditemukan", Toast.LENGTH_SHORT).show()
-                }
-            }.addOnFailureListener {
-                Toast.makeText(this, "Gagal ambil data: ${it.message}", Toast.LENGTH_SHORT).show()
+        userId?.let { uid ->
+            database.child(uid).get().addOnSuccessListener { snapshot ->
+                etEmail.setText(snapshot.child("email").getValue(String::class.java) ?: "")
+                etPassword.setText(snapshot.child("password").getValue(String::class.java) ?: "")
+                etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
             }
         }
 
-        // Toggle password
         btnTogglePassword.setOnClickListener {
             passwordVisible = !passwordVisible
-            if (passwordVisible) {
-                etPassword.transformationMethod = null
-                btnTogglePassword.setImageResource(R.drawable.ic_eye_off)
-            } else {
-                etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
-                btnTogglePassword.setImageResource(R.drawable.ic_eye)
-            }
+            etPassword.transformationMethod = if (passwordVisible) null
+            else PasswordTransformationMethod.getInstance()
+            btnTogglePassword.setImageResource(
+                if (passwordVisible) R.drawable.ic_eye_off else R.drawable.ic_eye
+            )
             etPassword.setSelection(etPassword.text.length)
         }
 
-        // Tombol SIMPAN
-        btnSimpan.setOnClickListener {
-            val email = etEmail.text.toString().trim()
+        findViewById<Button>(R.id.btnSimpan).setOnClickListener {
+            val email    = etEmail.text.toString().trim()
             val password = etPassword.text.toString().trim()
-
             if (email.isEmpty()) {
                 Toast.makeText(this, "Email tidak boleh kosong", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -88,18 +62,15 @@ class EditProfileActivity : AppCompatActivity() {
             updateProfile(email, password)
         }
 
-        // Tombol BATAL
-        btnBatal.setOnClickListener { showCancelDialog() }
-        btnBack.setOnClickListener { showCancelDialog() }
+        findViewById<Button>(R.id.btnBatal).setOnClickListener { showCancelDialog() }
+        findViewById<ImageView>(R.id.btnBack).setOnClickListener { showCancelDialog() }
     }
 
     private fun updateProfile(email: String, password: String) {
         val user = auth.currentUser ?: return
-
         user.updateEmail(email).addOnSuccessListener {
             user.updatePassword(password).addOnSuccessListener {
-                val data = mapOf("email" to email, "password" to password)
-                database.child(userId!!).updateChildren(data)
+                database.child(userId!!).updateChildren(mapOf("email" to email, "password" to password))
                 Toast.makeText(this, "Profile berhasil diupdate", Toast.LENGTH_SHORT).show()
                 finish()
             }.addOnFailureListener {

@@ -50,18 +50,22 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
 
+    // Firebase BOM (WAJIB)
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
 
     // Authentication
     implementation("com.google.firebase:firebase-auth-ktx")
 
+    // Firestore
+    implementation("com.google.firebase:firebase-firestore-ktx")
+
     // Realtime Database
     implementation("com.google.firebase:firebase-database-ktx")
 
-    // Analytics (opsional tapi bagus)
+    // Analytics
     implementation("com.google.firebase:firebase-analytics-ktx")
 
-    // 🗺 GOOGLE MAPS + GPS
+    //  Google Maps & GPS
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.0.1")
 

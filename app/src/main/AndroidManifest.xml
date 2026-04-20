@@ -1,39 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Internet -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Network -->
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Location -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
-    <!-- Notifikasi Android 13+ -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- (Opsional tapi bagus untuk GPS lebih stabil) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
         android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.TugasAkhir">
+        android:theme="@style/Theme.TugasAkhir"
+        android:supportsRtl="true">
 
-        <!-- GOOGLE MAPS API KEY -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyD3XFQROY9JGirVooSGoONEflEkW0GeUz0" />
+            android:value="AIzaSyD3XFQROY9JGirVooSGoONEflEkW0GeUz0"/>
 
-        <!-- LOGIN (HALAMAN PERTAMA) -->
         <activity
             android:name=".LoginActivity"
             android:exported="true">
@@ -43,37 +29,17 @@
             </intent-filter>
         </activity>
 
-        <!-- REGISTER -->
-        <activity
-            android:name=".RegisterActivity"
-            android:exported="false" />
+        <activity android:name=".RegisterActivity"/>
+        <activity android:name=".MainActivity"/>
+        <activity android:name=".HistoryActivity"/>
+        <activity android:name=".DetailLocationActivity"/>
+        <activity android:name=".ProfileActivity"/>
+        <activity android:name=".EditProfileActivity"/>
 
-        <!-- MAIN MAP -->
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
-
-        <!-- HISTORY -->
-        <activity
-            android:name=".HistoryActivity"
-            android:exported="false" />
-
-        <!-- PROFILE -->
-        <activity
-            android:name=".ProfileActivity"
-            android:exported="false" />
-
-        <!-- EDIT PROFILE -->
-        <activity
-            android:name=".EditProfileActivity"
-            android:exported="false" />
-
-        <!-- SERVICE (BACKGROUND) -->
         <service
             android:name=".CrashService"
             android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="location" />
+            android:exported="false"/>
 
     </application>
 

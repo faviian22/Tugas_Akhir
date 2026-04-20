@@ -11,71 +11,53 @@ class ProfileActivity : AppCompatActivity() {
 
     private lateinit var etEmail: EditText
     private lateinit var etPassword: EditText
-    private lateinit var btnEdit: Button
-    private lateinit var btnLogout: Button
-
-    private lateinit var database: DatabaseReference
     private lateinit var auth: FirebaseAuth
+    private lateinit var database: DatabaseReference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
 
-        etEmail = findViewById(R.id.etEmail)
+        etEmail   = findViewById(R.id.etEmail)
         etPassword = findViewById(R.id.etPassword)
-        btnEdit = findViewById(R.id.btnEdit)
-        btnLogout = findViewById(R.id.btnLogout)
+        auth      = FirebaseAuth.getInstance()
+        database  = FirebaseDatabase.getInstance().getReference("users")
 
-        val btnLokasi = findViewById<ImageView>(R.id.btnLokasi)
-        val btnHistori = findViewById<ImageView>(R.id.btnHistori)
-
-        auth = FirebaseAuth.getInstance()
-        database = FirebaseDatabase.getInstance().getReference("users")
-
-        val user = auth.currentUser
-
-        if (user != null) {
-            val userId = user.uid
-            ambilDataUser(userId)
-            etEmail.setText(user.email)
-        }
-
-        // 🔒 hanya view (tidak bisa diedit)
-        etEmail.isEnabled = false
+        etEmail.isEnabled   = false
         etPassword.isEnabled = false
 
-        // 🔥 PINDAH KE EDIT PROFILE (INI YANG PENTING)
-        btnEdit.setOnClickListener {
-            startActivity(Intent(this, EditProfileActivity::class.java))
+        auth.currentUser?.let { user ->
+            etEmail.setText(user.email)
+            ambilDataUser(user.uid)
         }
 
-        // 🔥 logout
-        btnLogout.setOnClickListener {
+        findViewById<Button>(R.id.btnEdit).setOnClickListener {
+            startActivity(Intent(this, EditProfileActivity::class.java))
+        }
+        findViewById<Button>(R.id.btnLogout).setOnClickListener {
             auth.signOut()
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
-
-        btnLokasi.setOnClickListener {
+        findViewById<ImageView>(R.id.btnLokasi).setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
         }
-
-        btnHistori.setOnClickListener {
+        findViewById<ImageView>(R.id.btnHistori).setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        auth.currentUser?.let { etEmail.setText(it.email) }
     }
 
     private fun ambilDataUser(uid: String) {
         database.child(uid).addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (snapshot.exists()) {
-                    val password = snapshot.child("password").value?.toString()
-                    etPassword.setText(password ?: "")
-                } else {
-                    Toast.makeText(this@ProfileActivity, "Data tidak ditemukan", Toast.LENGTH_SHORT).show()
-                }
+                val password = snapshot.child("password").value?.toString()
+                etPassword.setText(password ?: "")
             }
-
             override fun onCancelled(error: DatabaseError) {
                 Toast.makeText(this@ProfileActivity, error.message, Toast.LENGTH_SHORT).show()
             }
