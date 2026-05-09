@@ -14,8 +14,8 @@ import java.util.*
 
 class HistoryActivity : AppCompatActivity() {
 
-    private var mulai: Long? = null
-    private var selesai: Long? = null
+    private var mulai: Long? = null      // tanggal mulai filter
+    private var selesai: Long? = null    // tanggal selesai filter
     private lateinit var db: FirebaseFirestore
     private lateinit var tvMulai: TextView
     private lateinit var tvSelesai: TextView
@@ -32,18 +32,20 @@ class HistoryActivity : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
 
+        // inisialisasi UI
         tvMulai   = findViewById(R.id.tvMulai)
         tvSelesai = findViewById(R.id.tvSelesai)
         tvInfo    = findViewById(R.id.tvInfo)
         rvHistory = findViewById(R.id.rvHistory)
 
-        // Fix scroll
+        // setup RecyclerView
         rvHistory.layoutManager = LinearLayoutManager(this)
         rvHistory.setHasFixedSize(false)
         rvHistory.isNestedScrollingEnabled = true
         adapter = HistoryAdapter(list)
         rvHistory.adapter = adapter
 
+        // pilih tanggal mulai
         tvMulai.setOnClickListener {
             pickDate { ts, label ->
                 mulai = ts
@@ -52,6 +54,7 @@ class HistoryActivity : AppCompatActivity() {
             }
         }
 
+        // pilih tanggal selesai
         tvSelesai.setOnClickListener {
             pickDate { ts, label ->
                 selesai = ts
@@ -60,6 +63,7 @@ class HistoryActivity : AppCompatActivity() {
             }
         }
 
+        // tombol cari (filter data)
         findViewById<Button>(R.id.btnCari).setOnClickListener {
             if (mulai == null || selesai == null) {
                 Toast.makeText(this, "Pilih tanggal mulai dan selesai", Toast.LENGTH_SHORT).show()
@@ -69,7 +73,7 @@ class HistoryActivity : AppCompatActivity() {
             loadByRange(mulai!!, selesai!!)
         }
 
-        // Fix batal — reset semua state
+        // tombol batal (reset filter)
         findViewById<Button>(R.id.btnBatal).setOnClickListener {
             mulai   = null
             selesai = null
@@ -81,6 +85,7 @@ class HistoryActivity : AppCompatActivity() {
             loadAll()
         }
 
+        // navigasi bawah
         findViewById<ImageView>(R.id.btnLokasi).setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
         }
@@ -88,9 +93,10 @@ class HistoryActivity : AppCompatActivity() {
             startActivity(Intent(this, ProfileActivity::class.java))
         }
 
-        loadAll()
+        loadAll() // tampilkan semua data saat pertama buka
     }
 
+    // dialog pilih tanggal
     private fun pickDate(onPicked: (Long, String) -> Unit) {
         val cal = Calendar.getInstance()
         DatePickerDialog(this, { _, y, m, d ->
@@ -100,6 +106,7 @@ class HistoryActivity : AppCompatActivity() {
         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
+    // parsing data dari Firestore ke list
     private fun parseSnapshot(result: com.google.firebase.firestore.QuerySnapshot) {
         list.clear()
         for (doc in result) {
@@ -113,6 +120,7 @@ class HistoryActivity : AppCompatActivity() {
         adapter.notifyDataSetChanged()
     }
 
+    // ambil semua data history
     private fun loadAll() {
         db.collection("history")
             .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -123,8 +131,10 @@ class HistoryActivity : AppCompatActivity() {
             }
     }
 
+    // ambil data berdasarkan range tanggal
     private fun loadByRange(start: Long, end: Long) {
-        // Set end ke akhir hari (23:59:59)
+
+        // set tanggal akhir ke jam 23:59:59
         val endCal = Calendar.getInstance().apply {
             timeInMillis = end
             set(Calendar.HOUR_OF_DAY, 23)

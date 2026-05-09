@@ -101,7 +101,9 @@
                 android:drawableEnd="@drawable/ic_eye_off"
                 android:drawablePadding="8dp"
                 android:background="@drawable/bg_input_rounded"
-                android:layout_marginBottom="24dp"/>
+                android:layout_marginBottom="24dp"
+                android:clickable="true"
+                android:focusable="true"/>
 
             <!-- Button Login -->
             <Button

@@ -17,12 +17,13 @@ class EditProfileActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var database: DatabaseReference
     private var userId: String? = null
-    private var passwordVisible = false
+    private var passwordVisible = false // status tampil/sembunyi password
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_profile)
 
+        // inisialisasi komponen
         etEmail          = findViewById(R.id.etEmail)
         etPassword       = findViewById(R.id.etPassword)
         btnTogglePassword = findViewById(R.id.btnTogglePassword)
@@ -30,6 +31,7 @@ class EditProfileActivity : AppCompatActivity() {
         database         = FirebaseDatabase.getInstance().getReference("users")
         userId           = auth.currentUser?.uid
 
+        // ambil data user dari Firebase
         userId?.let { uid ->
             database.child(uid).get().addOnSuccessListener { snapshot ->
                 etEmail.setText(snapshot.child("email").getValue(String::class.java) ?: "")
@@ -38,19 +40,25 @@ class EditProfileActivity : AppCompatActivity() {
             }
         }
 
+        // tombol show/hide password
         btnTogglePassword.setOnClickListener {
             passwordVisible = !passwordVisible
             etPassword.transformationMethod = if (passwordVisible) null
             else PasswordTransformationMethod.getInstance()
+
+            // ganti icon mata
             btnTogglePassword.setImageResource(
                 if (passwordVisible) R.drawable.ic_eye_off else R.drawable.ic_eye
             )
             etPassword.setSelection(etPassword.text.length)
         }
 
+        // tombol simpan
         findViewById<Button>(R.id.btnSimpan).setOnClickListener {
             val email    = etEmail.text.toString().trim()
             val password = etPassword.text.toString().trim()
+
+            // validasi input
             if (email.isEmpty()) {
                 Toast.makeText(this, "Email tidak boleh kosong", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -59,28 +67,40 @@ class EditProfileActivity : AppCompatActivity() {
                 Toast.makeText(this, "Password minimal 6 karakter", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+
             updateProfile(email, password)
         }
 
+        // tombol batal / back
         findViewById<Button>(R.id.btnBatal).setOnClickListener { showCancelDialog() }
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { showCancelDialog() }
     }
 
+    // update email & password ke Firebase
     private fun updateProfile(email: String, password: String) {
         val user = auth.currentUser ?: return
+
         user.updateEmail(email).addOnSuccessListener {
             user.updatePassword(password).addOnSuccessListener {
-                database.child(userId!!).updateChildren(mapOf("email" to email, "password" to password))
+
+                // update juga ke Realtime Database
+                database.child(userId!!).updateChildren(
+                    mapOf("email" to email, "password" to password)
+                )
+
                 Toast.makeText(this, "Profile berhasil diupdate", Toast.LENGTH_SHORT).show()
                 finish()
+
             }.addOnFailureListener {
                 Toast.makeText(this, "Gagal update password: ${it.message}", Toast.LENGTH_SHORT).show()
             }
+
         }.addOnFailureListener {
             Toast.makeText(this, "Gagal update email: ${it.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
+    // dialog konfirmasi saat batal
     private fun showCancelDialog() {
         AlertDialog.Builder(this)
             .setTitle("Batal?")
