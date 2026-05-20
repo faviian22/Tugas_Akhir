@@ -1,21 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F5F7FA">
+    android:orientation="vertical">
 
-    <!-- HEADER -->
     <LinearLayout
-        android:id="@+id/headerLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:background="#FFFFFF"
-        android:elevation="4dp"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:orientation="vertical">
 
         <TextView
             android:layout_width="wrap_content"
@@ -23,173 +20,32 @@
             android:text="Driving History"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#1A1A2E"
-            android:layout_marginBottom="12dp"/>
-
-        <!-- Baris 1: Mulai & Selesai -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
-
-            <TextView
-                android:id="@+id/tvMulai"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="Mulai"
-                android:textColor="#888888"
-                android:textSize="12sp"
-                android:background="@drawable/bg_input_rounded"
-                android:layout_marginEnd="8dp"/>
-
-            <TextView
-                android:id="@+id/tvSelesai"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="Selesai"
-                android:textColor="#888888"
-                android:textSize="12sp"
-                android:background="@drawable/bg_input_rounded"/>
-
-        </LinearLayout>
-
-        <!-- Baris 2: Cari & Batal -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnCari"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:text="Cari"
-                android:textSize="13sp"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#185FA5"
-                android:stateListAnimator="@null"
-                android:layout_marginEnd="8dp"/>
-
-            <Button
-                android:id="@+id/btnBatal"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:text="Batal"
-                android:textSize="13sp"
-                android:textColor="#185FA5"
-                android:backgroundTint="#E6F1FB"
-                android:stateListAnimator="@null"/>
-
-        </LinearLayout>
+            android:textColor="#000000"/>
 
         <TextView
-            android:id="@+id/tvInfo"
-            android:layout_width="match_parent"
+            android:id="@+id/tvJarak"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Menampilkan semua histori"
-            android:textColor="#888888"
-            android:textSize="12sp"
-            android:layout_marginTop="10dp"/>
+            android:text="Jarak : 0 KM"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginTop="8dp"/>
+
+        <TextView
+            android:id="@+id/tvSpeed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rata-rata : 0 KM/H"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginTop="4dp"/>
 
     </LinearLayout>
 
-    <!-- RECYCLERVIEW -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvHistory"
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:padding="12dp"
-        android:clipToPadding="false"
-        android:scrollbars="vertical"
-        android:fadeScrollbars="false"/>
-
-    <!-- BOTTOM NAV -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/menuBottom"
-        android:layout_width="match_parent"
-        android:layout_height="70dp"
-        app:cardCornerRadius="0dp"
-        app:cardElevation="16dp"
-        app:cardBackgroundColor="#FFFFFF">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center">
-                <ImageView
-                    android:id="@+id/btnLokasi"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@android:drawable/ic_menu_mylocation"
-                    app:tint="#AAAAAA"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Lokasi"
-                    android:textSize="11sp"
-                    android:textColor="#AAAAAA"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center">
-                <ImageView
-                    android:id="@+id/btnHistori"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@android:drawable/ic_menu_recent_history"
-                    app:tint="#185FA5"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Histori"
-                    android:textSize="11sp"
-                    android:textColor="#185FA5"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center">
-                <ImageView
-                    android:id="@+id/btnProfil"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@android:drawable/ic_menu_myplaces"
-                    app:tint="#AAAAAA"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Profil"
-                    android:textSize="11sp"
-                    android:textColor="#AAAAAA"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+        android:layout_height="match_parent"/>
 
 </LinearLayout>
