@@ -18,29 +18,31 @@ class HistoryAdapter(private val list: List<HistoryModel>) :
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_history, parent, false)
-
         return ViewHolder(view)
     }
 
     override fun getItemCount(): Int = list.size
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-
         val data = list[position]
 
-        holder.tvLokasi.text = data.lokasi
-        holder.tvWaktu.text = data.waktu
+        holder.tvLokasi.text = data.lokasi.ifEmpty { "-" }
+
+        holder.tvWaktu.text = data.timestamp
+            ?.toDate()
+            ?.toString()
+            ?: "-"
 
         holder.itemView.setOnClickListener {
+            val context = holder.itemView.context
 
-            val intent = Intent(it.context, DetailLocationActivity::class.java)
+            val intent = Intent(context, DetailLocationActivity::class.java).apply {
+                putExtra("lat", data.lat)
+                putExtra("lng", data.lng)
+                putExtra("waktu", holder.tvWaktu.text.toString())
+            }
 
-            intent.putExtra("lat", data.lat)
-            intent.putExtra("lng", data.lng)
-            intent.putExtra("waktu", data.waktu)
-            intent.putExtra("lokasi", data.lokasi)
-
-            it.context.startActivity(intent)
+            context.startActivity(intent)
         }
     }
 }

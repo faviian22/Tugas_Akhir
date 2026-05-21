@@ -1,80 +1,197 @@
 package com.example.tugasakhir
 
+import android.graphics.Color
 import android.os.Bundle
-import android.view.View
-import android.widget.Button
-import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.cardview.widget.CardView
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.*
+import com.google.firebase.database.*
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.math.*
 
-class DetailLocationActivity : AppCompatActivity() {
+class DetailLocationActivity :
+    AppCompatActivity(),
+    OnMapReadyCallback {
 
-    private var lat: Double = 0.0
-    private var lng: Double = 0.0
-    private lateinit var mapContainer: FrameLayout
-    private lateinit var cardDetail: CardView
-    private var mapFragment: SupportMapFragment? = null
+    private lateinit var mMap: GoogleMap
+    private lateinit var database: DatabaseReference
+
+    private lateinit var tvJarak: TextView
+    private lateinit var tvSpeed: TextView
+
+    private val pathList = ArrayList<LatLng>()
+
+    private var totalSpeed = 0.0
+    private var totalData = 0
+
+    private var tanggal = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_detail_location)
 
-        // ambil komponen UI
-        val tvLat    = findViewById<TextView>(R.id.tvLat)
-        val tvLng    = findViewById<TextView>(R.id.tvLng)
-        val tvWaktu  = findViewById<TextView>(R.id.tvWaktu)
-        val btnMap   = findViewById<Button>(R.id.btnMap)
-        val btnBack  = findViewById<ImageView>(R.id.btnBack)
-        cardDetail   = findViewById(R.id.cardDetail)
-        mapContainer = findViewById(R.id.mapContainer)
+        tvJarak = findViewById(R.id.tvJarak)
+        tvSpeed = findViewById(R.id.tvSpeed)
 
-        // ambil data dari intent
-        lat = intent.getDoubleExtra("lat", 0.0)
-        lng = intent.getDoubleExtra("lng", 0.0)
-        val waktu = intent.getStringExtra("waktu") ?: "-"
+        tanggal = intent.getStringExtra("tanggal") ?: ""
 
-        // tampilkan data ke UI
-        tvLat.text   = "%.6f".format(lat)
-        tvLng.text   = "%.6f".format(lng)
-        tvWaktu.text = waktu
+        database = FirebaseDatabase.getInstance()
+            .getReference("gps")
+            .child("path")
 
-        // tombol untuk buka peta
-        btnMap.setOnClickListener {
-            cardDetail.visibility   = View.GONE   // sembunyikan detail
-            mapContainer.visibility = View.VISIBLE // tampilkan map
+        val mapFragment =
+            supportFragmentManager.findFragmentById(R.id.map)
+                    as SupportMapFragment
 
-            // buat map hanya sekali
-            if (mapFragment == null) {
-                mapFragment = SupportMapFragment.newInstance()
-                supportFragmentManager.beginTransaction()
-                    .replace(R.id.mapContainer, mapFragment!!)
-                    .commit()
+        mapFragment.getMapAsync(this)
+    }
 
-                // tampilkan marker di lokasi
-                mapFragment!!.getMapAsync { googleMap ->
-                    val lokasi = LatLng(lat, lng)
-                    googleMap.addMarker(MarkerOptions().position(lokasi).title("Lokasi"))
-                    googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lokasi, 17f))
+    override fun onMapReady(googleMap: GoogleMap) {
+
+        mMap = googleMap
+
+        loadData()
+    }
+
+    private fun loadData() {
+
+        database.addListenerForSingleValueEvent(object : ValueEventListener {
+
+            override fun onDataChange(snapshot: DataSnapshot) {
+
+                pathList.clear()
+
+                totalSpeed = 0.0
+                totalData = 0
+
+                for (data in snapshot.children) {
+
+                    val lat = data.child("lat")
+                        .getValue(Double::class.java)
+
+                    val lng = data.child("lng")
+                        .getValue(Double::class.java)
+
+                    val speed = data.child("speed")
+                        .getValue(Double::class.java) ?: 0.0
+
+                    val timestamp = data.child("timestamp")
+                        .getValue(Long::class.java) ?: 0L
+
+                    val tgl =
+                        SimpleDateFormat(
+                            "dd/MM/yyyy",
+                            Locale.getDefault()
+                        ).format(Date(timestamp))
+
+                    if (tgl != tanggal)
+                        continue
+
+                    if (lat != null && lng != null) {
+
+                        val posisi = LatLng(lat, lng)
+
+                        pathList.add(posisi)
+
+                        totalSpeed += speed
+                        totalData++
+                    }
+                }
+
+                if (pathList.isNotEmpty()) {
+
+                    val polyline = PolylineOptions()
+                        .addAll(pathList)
+                        .width(12f)
+                        .color(Color.BLUE)
+
+                    mMap.addPolyline(polyline)
+
+                    // start
+                    mMap.addMarker(
+                        MarkerOptions()
+                            .position(pathList.first())
+                            .title("Start")
+                    )
+
+                    // motor
+                    mMap.addMarker(
+                        MarkerOptions()
+                            .position(pathList.last())
+                            .title("Motor")
+                    )
+
+                    mMap.animateCamera(
+                        CameraUpdateFactory.newLatLngZoom(
+                            pathList.last(),
+                            15f
+                        )
+                    )
+
+                    val jarak = hitungJarak()
+
+                    tvJarak.text =
+                        "Jarak : %.2f KM".format(jarak)
+
+                    val rata =
+                        if (totalData > 0)
+                            totalSpeed / totalData
+                        else
+                            0.0
+
+                    tvSpeed.text =
+                        "Rata-rata : %.1f KM/H".format(rata)
                 }
             }
+
+            override fun onCancelled(error: DatabaseError) {
+
+            }
+        })
+    }
+
+    private fun hitungJarak(): Double {
+
+        var total = 0.0
+
+        for (i in 0 until pathList.size - 1) {
+
+            total += distance(
+                pathList[i],
+                pathList[i + 1]
+            )
         }
 
-        // tombol back
-        btnBack.setOnClickListener {
-            if (mapContainer.visibility == View.VISIBLE) {
-                // kalau lagi di map → balik ke detail
-                mapContainer.visibility = View.GONE
-                cardDetail.visibility   = View.VISIBLE
-            } else {
-                // kalau di detail → keluar activity
-                finish()
-            }
-        }
+        return total
+    }
+
+    private fun distance(
+        start: LatLng,
+        end: LatLng
+    ): Double {
+
+        val radius = 6371.0
+
+        val dLat =
+            Math.toRadians(end.latitude - start.latitude)
+
+        val dLng =
+            Math.toRadians(end.longitude - start.longitude)
+
+        val a =
+            sin(dLat / 2).pow(2) +
+                    cos(Math.toRadians(start.latitude)) *
+                    cos(Math.toRadians(end.latitude)) *
+                    sin(dLng / 2).pow(2)
+
+        val c =
+            2 * atan2(sqrt(a), sqrt(1 - a))
+
+        return radius * c
     }
 }

@@ -1,18 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permission -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
-
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
 
     <application
         android:allowBackup="true"
@@ -22,12 +16,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TugasAkhir">
 
-        <!-- Google Maps -->
+        <!-- GOOGLE MAPS -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyD3XFQROY9JGirVooSGoONEflEkW0GeUz0"/>
+            android:value="ISI_API_KEY_KAMU"/>
 
-        <!-- Login -->
+        <!-- LOGIN -->
         <activity
             android:name=".LoginActivity"
             android:exported="true">
@@ -42,19 +36,13 @@
 
         </activity>
 
-        <!-- Activity -->
-        <activity android:name=".RegisterActivity"/>
+        <!-- ACTIVITY -->
         <activity android:name=".MainActivity"/>
+        <activity android:name=".RegisterActivity"/>
         <activity android:name=".HistoryActivity"/>
         <activity android:name=".DetailLocationActivity"/>
         <activity android:name=".ProfileActivity"/>
         <activity android:name=".EditProfileActivity"/>
-
-        <!-- Service -->
-        <service
-            android:name=".CrashService"
-            android:enabled="true"
-            android:exported="false"/>
 
     </application>
 

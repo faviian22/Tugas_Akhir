@@ -1,178 +1,137 @@
 package com.example.tugasakhir
 
-import android.graphics.Color
+import android.app.DatePickerDialog
+import android.content.Intent
 import android.os.Bundle
-import android.widget.TextView
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.*
-import com.google.firebase.database.*
-import kotlin.math.*
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
+import java.util.*
 
-class HistoryActivity : AppCompatActivity(), OnMapReadyCallback {
+class HistoryActivity : AppCompatActivity() {
 
-    private lateinit var mMap: GoogleMap
-    private lateinit var database: DatabaseReference
+    private var mulai: Long? = null
+    private var selesai: Long? = null
 
-    private lateinit var tvJarak: TextView
-    private lateinit var tvSpeed: TextView
+    private lateinit var db: FirebaseFirestore
+    private lateinit var tvMulai: TextView
+    private lateinit var tvSelesai: TextView
+    private lateinit var tvInfo: TextView
+    private lateinit var rvHistory: RecyclerView
+    private lateinit var adapter: HistoryAdapter
 
-    private val pathList = ArrayList<LatLng>()
-    private var totalSpeed = 0.0
-    private var totalData = 0
+    private val list = mutableListOf<HistoryModel>()
+    private val format = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_history)
 
-        tvJarak = findViewById(R.id.tvJarak)
-        tvSpeed = findViewById(R.id.tvSpeed)
+        db = FirebaseFirestore.getInstance()
 
-        database = FirebaseDatabase.getInstance()
-            .getReference("gps/path")
+        tvMulai = findViewById(R.id.tvMulai)
+        tvSelesai = findViewById(R.id.tvSelesai)
+        tvInfo = findViewById(R.id.tvInfo)
+        rvHistory = findViewById(R.id.rvHistory)
 
-        val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
+        rvHistory.layoutManager = LinearLayoutManager(this)
+        adapter = HistoryAdapter(list)
+        rvHistory.adapter = adapter
 
-        mapFragment.getMapAsync(this)
-    }
+        // pilih tanggal
+        tvMulai.setOnClickListener { pickDate { ts, label ->
+            mulai = ts
+            tvMulai.text = label
+        }}
 
-    override fun onMapReady(googleMap: GoogleMap) {
+        tvSelesai.setOnClickListener { pickDate { ts, label ->
+            selesai = ts
+            tvSelesai.text = label
+        }}
 
-        mMap = googleMap
-
-        loadHistory()
-    }
-
-    private fun loadHistory() {
-
-        database.addListenerForSingleValueEvent(object : ValueEventListener {
-
-            override fun onDataChange(snapshot: DataSnapshot) {
-
-                pathList.clear()
-
-                totalSpeed = 0.0
-                totalData = 0
-
-                for (data in snapshot.children) {
-
-                    val lat = data.child("lat")
-                        .getValue(Double::class.java)
-
-                    val lng = data.child("lng")
-                        .getValue(Double::class.java)
-
-                    val speed = data.child("speed")
-                        .getValue(Double::class.java) ?: 0.0
-
-                    if (lat != null && lng != null) {
-
-                        val posisi = LatLng(lat, lng)
-
-                        pathList.add(posisi)
-
-                        totalSpeed += speed
-                        totalData++
-                    }
-                }
-
-                if (pathList.isNotEmpty()) {
-
-                    val polyline = PolylineOptions()
-                        .addAll(pathList)
-                        .width(12f)
-                        .color(Color.BLUE)
-
-                    mMap.addPolyline(polyline)
-
-                    // marker awal
-                    mMap.addMarker(
-                        MarkerOptions()
-                            .position(pathList.first())
-                            .title("Start")
-                    )
-
-                    // marker akhir motor
-                    mMap.addMarker(
-                        MarkerOptions()
-                            .position(pathList.last())
-                            .title("Motor")
-                            .icon(
-                                BitmapDescriptorFactory.fromResource(
-                                    R.drawable.ic_motor
-                                )
-                            )
-                    )
-
-                    mMap.animateCamera(
-                        CameraUpdateFactory.newLatLngZoom(
-                            pathList.last(),
-                            15f
-                        )
-                    )
-
-                    val jarak = hitungTotalJarak()
-
-                    tvJarak.text =
-                        "Jarak : %.2f KM".format(jarak)
-
-                    val rata =
-                        if (totalData > 0)
-                            totalSpeed / totalData
-                        else
-                            0.0
-
-                    tvSpeed.text =
-                        "Rata-rata : %.1f KM/H".format(rata)
-                }
+        // cari
+        findViewById<Button>(R.id.btnCari).setOnClickListener {
+            if (mulai == null || selesai == null) {
+                Toast.makeText(this, "Pilih tanggal dulu", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
-
-            override fun onCancelled(error: DatabaseError) {
-
-            }
-        })
-    }
-
-    private fun hitungTotalJarak(): Double {
-
-        var total = 0.0
-
-        for (i in 0 until pathList.size - 1) {
-
-            total += distance(
-                pathList[i],
-                pathList[i + 1]
-            )
+            loadByRange(mulai!!, selesai!!)
         }
 
-        return total
+        // reset
+        findViewById<Button>(R.id.btnBatal).setOnClickListener {
+            loadAll()
+        }
+
+        loadAll()
     }
 
-    private fun distance(
-        start: LatLng,
-        end: LatLng
-    ): Double {
+    private fun pickDate(onPicked: (Long, String) -> Unit) {
+        val cal = Calendar.getInstance()
 
-        val radius = 6371
+        DatePickerDialog(this, { _, y, m, d ->
+            cal.set(y, m, d, 0, 0, 0)
+            cal.set(Calendar.MILLISECOND, 0)
 
-        val dLat =
-            Math.toRadians(end.latitude - start.latitude)
+            onPicked(cal.timeInMillis, format.format(cal.time))
 
-        val dLng =
-            Math.toRadians(end.longitude - start.longitude)
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+    }
 
-        val a =
-            sin(dLat / 2).pow(2) +
-                    cos(Math.toRadians(start.latitude)) *
-                    cos(Math.toRadians(end.latitude)) *
-                    sin(dLng / 2).pow(2)
+    private fun loadAll() {
+        db.collection("history")
+            .orderBy("timestamp")
+            .get()
+            .addOnSuccessListener {
+                list.clear()
 
-        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+                for (doc in it) {
+                    list.add(
+                        HistoryModel(
+                            lokasi = doc.getString("lokasi") ?: "",
+                            lat = doc.getDouble("latitude") ?: 0.0,
+                            lng = doc.getDouble("longitude") ?: 0.0,
+                            timestamp = doc.getTimestamp("timestamp")
+                        )
+                    )
+                }
 
-        return radius * c
+                adapter.notifyDataSetChanged()
+            }
+    }
+
+    private fun loadByRange(start: Long, end: Long) {
+
+        val endCal = Calendar.getInstance().apply {
+            timeInMillis = end
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+        }
+
+        db.collection("history")
+            .whereGreaterThanOrEqualTo("timestamp", com.google.firebase.Timestamp(Date(start)))
+            .whereLessThanOrEqualTo("timestamp", com.google.firebase.Timestamp(Date(endCal.timeInMillis)))
+            .orderBy("timestamp")
+            .get()
+            .addOnSuccessListener {
+                list.clear()
+
+                for (doc in it) {
+                    list.add(
+                        HistoryModel(
+                            lokasi = doc.getString("lokasi") ?: "",
+                            lat = doc.getDouble("latitude") ?: 0.0,
+                            lng = doc.getDouble("longitude") ?: 0.0,
+                            timestamp = doc.getTimestamp("timestamp")
+                        )
+                    )
+                }
+
+                adapter.notifyDataSetChanged()
+            }
     }
 }
