@@ -2,196 +2,878 @@ package com.example.tugasakhir
 
 import android.graphics.Color
 import android.os.Bundle
+import android.view.View
+import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.*
-import com.google.firebase.database.*
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.JointType
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.PolylineOptions
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.maps.android.PolyUtil
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import org.json.JSONObject
+import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.math.*
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 
-class DetailLocationActivity :
-    AppCompatActivity(),
-    OnMapReadyCallback {
+class DetailLocationActivity : AppCompatActivity() {
 
-    private lateinit var mMap: GoogleMap
-    private lateinit var database: DatabaseReference
+    private var startLat: Double = 0.0
+    private var startLng: Double = 0.0
+    private var endLat: Double = 0.0
+    private var endLng: Double = 0.0
 
-    private lateinit var tvJarak: TextView
-    private lateinit var tvSpeed: TextView
+    private var jarakKm: Double = 0.0
+    private var kecepatanKmh: Double = 0.0
+    private var durasiText: String = "0 menit"
 
-    private val pathList = ArrayList<LatLng>()
+    private var routeStartTime: Long = 0L
+    private var routeEndTime: Long = 0L
 
-    private var totalSpeed = 0.0
-    private var totalData = 0
+    private lateinit var db: FirebaseFirestore
 
-    private var tanggal = ""
+    private lateinit var mapContainer: FrameLayout
+    private lateinit var cardDetail: CardView
+    private var mapFragment: SupportMapFragment? = null
+
+    private lateinit var tvWaktu: TextView
+    private lateinit var btnMap: Button
+    private lateinit var btnBack: View
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
+        .build()
+
+    private val formatTrackDoc = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (SessionManager.redirectToLoginIfNeeded(this)) return
+
         setContentView(R.layout.activity_detail_location)
 
-        tvJarak = findViewById(R.id.tvJarak)
-        tvSpeed = findViewById(R.id.tvSpeed)
+        db = FirebaseFirestore.getInstance()
 
-        tanggal = intent.getStringExtra("tanggal") ?: ""
+        tvWaktu = findViewById(R.id.tvWaktu)
+        btnMap = findViewById(R.id.btnMap)
+        btnBack = findViewById(R.id.btnBack)
 
-        database = FirebaseDatabase.getInstance()
-            .getReference("gps")
-            .child("path")
+        cardDetail = findViewById(R.id.cardDetail)
+        mapContainer = findViewById(R.id.mapContainer)
 
-        val mapFragment =
-            supportFragmentManager.findFragmentById(R.id.map)
-                    as SupportMapFragment
+        startLat = intent.getDoubleExtra("startLat", 0.0)
+        startLng = intent.getDoubleExtra("startLng", 0.0)
+        endLat = intent.getDoubleExtra("endLat", 0.0)
+        endLng = intent.getDoubleExtra("endLng", 0.0)
 
-        mapFragment.getMapAsync(this)
+        val waktu = intent.getStringExtra("waktu") ?: "-"
+
+        jarakKm = intent.getDoubleExtra("jarakKm", 0.0)
+        kecepatanKmh = intent.getDoubleExtra("kecepatanKmh", 0.0)
+        durasiText = intent.getStringExtra("durasiText") ?: "0 menit"
+
+        routeStartTime = intent.getLongExtra("routeStartTime", 0L)
+        routeEndTime = intent.getLongExtra("routeEndTime", 0L)
+
+        tvWaktu.text = waktu
+
+        tampilkanStatistikKeLayout(
+            jarakKm = jarakKm,
+            kecepatanKmh = kecepatanKmh,
+            durasiText = durasiText
+        )
+
+        btnMap.setOnClickListener {
+            cardDetail.visibility = View.GONE
+            mapContainer.visibility = View.VISIBLE
+            tampilkanRuteDiMap()
+        }
+
+        btnBack.setOnClickListener {
+            if (mapContainer.visibility == View.VISIBLE) {
+                mapContainer.visibility = View.GONE
+                cardDetail.visibility = View.VISIBLE
+            } else {
+                finish()
+            }
+        }
     }
 
-    override fun onMapReady(googleMap: GoogleMap) {
+    private fun tampilkanStatistikKeLayout(
+        jarakKm: Double,
+        kecepatanKmh: Double,
+        durasiText: String
+    ) {
+        setOptionalText(
+            listOf("tvJarak", "tvSheetJarak", "tvDistance", "tvJarakTempuh"),
+            "%.2f km".format(jarakKm)
+        )
 
-        mMap = googleMap
+        setOptionalText(
+            listOf("tvSpeed", "tvSheetSpeed", "tvKecepatan"),
+            "%.1f km/jam".format(kecepatanKmh)
+        )
 
-        loadData()
+        setOptionalText(
+            listOf("tvDuration", "tvSheetDuration", "tvDurasi", "tvWaktuTempuh"),
+            durasiText
+        )
     }
 
-    private fun loadData() {
+    private fun setOptionalText(possibleIds: List<String>, value: String) {
+        for (idName in possibleIds) {
+            val id = resources.getIdentifier(idName, "id", packageName)
 
-        database.addListenerForSingleValueEvent(object : ValueEventListener {
+            if (id != 0) {
+                val view = findViewById<View>(id)
 
-            override fun onDataChange(snapshot: DataSnapshot) {
+                if (view is TextView) {
+                    view.text = value
+                    return
+                }
+            }
+        }
+    }
 
-                pathList.clear()
+    private fun tampilkanRuteDiMap() {
+        if (startLat == 0.0 || startLng == 0.0 || endLat == 0.0 || endLng == 0.0) {
+            Toast.makeText(
+                this,
+                "Data titik awal atau titik akhir tidak lengkap",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
 
-                totalSpeed = 0.0
-                totalData = 0
+        if (mapFragment == null) {
+            mapFragment = SupportMapFragment.newInstance()
 
-                for (data in snapshot.children) {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.mapContainer, mapFragment!!)
+                .commitNowAllowingStateLoss()
+        }
 
-                    val lat = data.child("lat")
-                        .getValue(Double::class.java)
+        mapFragment?.getMapAsync { googleMap ->
+            googleMap.clear()
+            googleMap.uiSettings.isZoomControlsEnabled = true
 
-                    val lng = data.child("lng")
-                        .getValue(Double::class.java)
+            val titikAwal = LatLng(startLat, startLng)
+            val titikAkhir = LatLng(endLat, endLng)
 
-                    val speed = data.child("speed")
-                        .getValue(Double::class.java) ?: 0.0
+            googleMap.addMarker(
+                MarkerOptions()
+                    .position(titikAwal)
+                    .title("Lokasi Awal")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+            )
 
-                    val timestamp = data.child("timestamp")
-                        .getValue(Long::class.java) ?: 0L
+            googleMap.addMarker(
+                MarkerOptions()
+                    .position(titikAkhir)
+                    .title("Lokasi Akhir")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+            )
 
-                    val tgl =
-                        SimpleDateFormat(
-                            "dd/MM/yyyy",
-                            Locale.getDefault()
-                        ).format(Date(timestamp))
+            fokuskanKamera(googleMap, listOf(titikAwal, titikAkhir))
 
-                    if (tgl != tanggal)
-                        continue
+            if (routeStartTime > 0L && routeEndTime > 0L) {
+                ambilRuteAktualFirestore(
+                    onSuccess = { gpsPoints ->
+                        if (gpsPoints.size < 2) {
+                            tampilkanRuteOSRMFallback(googleMap)
+                            return@ambilRuteAktualFirestore
+                        }
 
-                    if (lat != null && lng != null) {
+                        ambilRuteJalanDariOSRMMelaluiTitik(
+                            gpsPoints = gpsPoints,
+                            onSuccess = { roadPoints ->
+                                runOnUiThread {
+                                    if (roadPoints.size >= 2) {
+                                        gambarPolylineRute(googleMap, roadPoints, Color.BLUE)
+                                        fokuskanKamera(googleMap, roadPoints)
+                                        perbaruiStatistikDariJalurJalan(roadPoints)
 
-                        val posisi = LatLng(lat, lng)
+                                        Toast.makeText(
+                                            this,
+                                            "Rute GPS ditampilkan mengikuti jalan",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        tampilkanRuteOSRMFallback(googleMap)
+                                    }
+                                }
+                            },
+                            onError = {
+                                runOnUiThread {
+                                    gambarPolylineRute(googleMap, gpsPoints, Color.BLUE)
+                                    fokuskanKamera(googleMap, gpsPoints)
 
-                        pathList.add(posisi)
+                                    Toast.makeText(
+                                        this,
+                                        "Rute jalan gagal dibuat. Ditampilkan rute GPS aktual.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        )
+                    },
+                    onError = {
+                        runOnUiThread {
+                            tampilkanRuteOSRMFallback(googleMap)
+                        }
+                    }
+                )
+            } else {
+                tampilkanRuteOSRMFallback(googleMap)
+            }
+        }
+    }
 
-                        totalSpeed += speed
-                        totalData++
+    private fun ambilRuteAktualFirestore(
+        onSuccess: (List<LatLng>) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        db.collectionGroup("points")
+            .get()
+            .addOnSuccessListener { pointDocs ->
+                val points = mutableListOf<GpsPoint>()
+
+                for (pointDoc in pointDocs) {
+                    val trackDate = pointDoc.reference.parent.parent?.id ?: ""
+                    val point = getGpsPointFromTrackPoint(pointDoc, trackDate)
+
+                    if (point != null && point.timestamp in routeStartTime..routeEndTime) {
+                        points.add(point)
                     }
                 }
 
-                if (pathList.isNotEmpty()) {
+                val sortedPoints = points.sortedBy { it.timestamp }
 
-                    val polyline = PolylineOptions()
-                        .addAll(pathList)
-                        .width(12f)
-                        .color(Color.BLUE)
-
-                    mMap.addPolyline(polyline)
-
-                    // start
-                    mMap.addMarker(
-                        MarkerOptions()
-                            .position(pathList.first())
-                            .title("Start")
-                    )
-
-                    // motor
-                    mMap.addMarker(
-                        MarkerOptions()
-                            .position(pathList.last())
-                            .title("Motor")
-                    )
-
-                    mMap.animateCamera(
-                        CameraUpdateFactory.newLatLngZoom(
-                            pathList.last(),
-                            15f
-                        )
-                    )
-
-                    val jarak = hitungJarak()
-
-                    tvJarak.text =
-                        "Jarak : %.2f KM".format(jarak)
-
-                    val rata =
-                        if (totalData > 0)
-                            totalSpeed / totalData
-                        else
-                            0.0
-
-                    tvSpeed.text =
-                        "Rata-rata : %.1f KM/H".format(rata)
+                if (sortedPoints.isEmpty()) {
+                    onError("Data rute aktual tidak ditemukan")
+                    return@addOnSuccessListener
                 }
+
+                val pathList = sortedPoints.map {
+                    LatLng(it.lat, it.lng)
+                }
+
+                val stats = hitungStatistikRute(sortedPoints)
+
+                jarakKm = stats.jarakKm
+                kecepatanKmh = stats.kecepatanKmh
+                durasiText = stats.durasiText
+
+                tampilkanStatistikKeLayout(
+                    jarakKm = jarakKm,
+                    kecepatanKmh = kecepatanKmh,
+                    durasiText = durasiText
+                )
+
+                onSuccess(pathList)
+            }
+            .addOnFailureListener { error ->
+                onError("Gagal mengambil rute aktual: ${error.message}")
+            }
+    }
+
+    private fun ambilRuteJalanDariOSRMMelaluiTitik(
+        gpsPoints: List<LatLng>,
+        onSuccess: (List<LatLng>) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val cleanedPoints = rapikanTitikGps(gpsPoints)
+
+        if (cleanedPoints.size < 2) {
+            onError("Titik GPS tidak cukup")
+            return
+        }
+
+        val chunks = buatChunkRute(cleanedPoints, 20)
+        val hasilAkhir = mutableListOf<LatLng>()
+
+        var index = 0
+
+        fun prosesChunk() {
+            if (index >= chunks.size) {
+                onSuccess(hasilAkhir)
+                return
             }
 
-            override fun onCancelled(error: DatabaseError) {
+            val chunk = chunks[index]
 
+            ambilRuteOSRMUntukWaypoint(
+                waypoints = chunk,
+                onSuccess = { segmentPoints ->
+                    if (segmentPoints.isEmpty()) {
+                        onError("Rute OSRM kosong")
+                        return@ambilRuteOSRMUntukWaypoint
+                    }
+
+                    if (hasilAkhir.isNotEmpty()) {
+                        hasilAkhir.addAll(segmentPoints.drop(1))
+                    } else {
+                        hasilAkhir.addAll(segmentPoints)
+                    }
+
+                    index++
+                    prosesChunk()
+                },
+                onError = { message ->
+                    onError(message)
+                }
+            )
+        }
+
+        prosesChunk()
+    }
+
+    private fun rapikanTitikGps(points: List<LatLng>): List<LatLng> {
+        val result = mutableListOf<LatLng>()
+
+        for (point in points) {
+            val validLat = point.latitude in -90.0..90.0
+            val validLng = point.longitude in -180.0..180.0
+
+            if (!validLat || !validLng) continue
+
+            val lastPoint = result.lastOrNull()
+
+            if (lastPoint == null) {
+                result.add(point)
+            } else {
+                val jarakMeter = distance(lastPoint, point) * 1000.0
+
+                if (jarakMeter >= 5.0) {
+                    result.add(point)
+                }
+            }
+        }
+
+        return result
+    }
+
+    private fun buatChunkRute(points: List<LatLng>, maxPointPerChunk: Int): List<List<LatLng>> {
+        val chunks = mutableListOf<List<LatLng>>()
+
+        if (points.size <= maxPointPerChunk) {
+            chunks.add(points)
+            return chunks
+        }
+
+        var startIndex = 0
+
+        while (startIndex < points.lastIndex) {
+            val endIndex = minOf(startIndex + maxPointPerChunk - 1, points.lastIndex)
+            chunks.add(points.subList(startIndex, endIndex + 1))
+            startIndex = endIndex
+        }
+
+        return chunks
+    }
+
+    private fun ambilRuteOSRMUntukWaypoint(
+        waypoints: List<LatLng>,
+        onSuccess: (List<LatLng>) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (waypoints.size < 2) {
+            onError("Titik rute tidak cukup")
+            return
+        }
+
+        val coordinates = waypoints.joinToString(";") {
+            "${it.longitude},${it.latitude}"
+        }
+
+        val url =
+            "https://router.project-osrm.org/route/v1/driving/$coordinates" +
+                    "?overview=full&geometries=polyline&steps=false"
+
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onError("Gagal terhubung ke OSRM: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!response.isSuccessful) {
+                        onError("Gagal mengambil rute OSRM. Kode: ${response.code}")
+                        return
+                    }
+
+                    val responseBody = response.body?.string()
+
+                    if (responseBody.isNullOrEmpty()) {
+                        onError("Respons OSRM kosong")
+                        return
+                    }
+
+                    try {
+                        val json = JSONObject(responseBody)
+                        val code = json.optString("code")
+
+                        if (code != "Ok") {
+                            onError("OSRM tidak menemukan rute")
+                            return
+                        }
+
+                        val routes = json.getJSONArray("routes")
+
+                        if (routes.length() == 0) {
+                            onError("Data rute OSRM kosong")
+                            return
+                        }
+
+                        val route = routes.getJSONObject(0)
+                        val geometry = route.getString("geometry")
+                        val routePoints = PolyUtil.decode(geometry)
+
+                        onSuccess(routePoints)
+                    } catch (e: Exception) {
+                        onError("Gagal membaca respons OSRM: ${e.message}")
+                    }
+                }
             }
         })
     }
 
-    private fun hitungJarak(): Double {
+    private fun tampilkanRuteOSRMFallback(googleMap: GoogleMap) {
+        val titikAwal = LatLng(startLat, startLng)
+        val titikAkhir = LatLng(endLat, endLng)
+
+        ambilRuteOSRM(
+            startLat = startLat,
+            startLng = startLng,
+            endLat = endLat,
+            endLng = endLng,
+            onSuccess = { routePoints, distanceKm, durationMinute ->
+                runOnUiThread {
+                    if (routePoints.isEmpty()) {
+                        Toast.makeText(
+                            this,
+                            "Rute OSRM kosong",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@runOnUiThread
+                    }
+
+                    gambarPolylineRute(googleMap, routePoints, Color.BLUE)
+                    fokuskanKamera(googleMap, routePoints)
+
+                    val durationMs = if (routeEndTime > routeStartTime) {
+                        routeEndTime - routeStartTime
+                    } else {
+                        (durationMinute * 60.0 * 1000.0).toLong()
+                    }
+
+                    perbaruiStatistikDariJarak(distanceKm, durationMs)
+
+                    Toast.makeText(
+                        this,
+                        "Rute ditampilkan mengikuti jalan",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            onError = { message ->
+                runOnUiThread {
+                    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+
+                    googleMap.addPolyline(
+                        PolylineOptions()
+                            .add(titikAwal, titikAkhir)
+                            .width(8f)
+                            .color(Color.GRAY)
+                    )
+
+                    fokuskanKamera(googleMap, listOf(titikAwal, titikAkhir))
+                }
+            }
+        )
+    }
+
+    private fun gambarPolylineRute(
+        googleMap: GoogleMap,
+        routePoints: List<LatLng>,
+        color: Int
+    ) {
+        if (routePoints.size < 2) return
+
+        googleMap.addPolyline(
+            PolylineOptions()
+                .addAll(routePoints)
+                .width(12f)
+                .color(color)
+                .jointType(JointType.ROUND)
+        )
+    }
+
+    private fun fokuskanKamera(
+        googleMap: GoogleMap,
+        points: List<LatLng>
+    ) {
+        if (points.isEmpty()) return
+
+        mapContainer.post {
+            if (points.size == 1) {
+                googleMap.animateCamera(
+                    CameraUpdateFactory.newLatLngZoom(points.first(), 17f)
+                )
+                return@post
+            }
+
+            try {
+                val boundsBuilder = LatLngBounds.Builder()
+
+                for (point in points) {
+                    boundsBuilder.include(point)
+                }
+
+                googleMap.animateCamera(
+                    CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 120)
+                )
+            } catch (_: Exception) {
+                googleMap.animateCamera(
+                    CameraUpdateFactory.newLatLngZoom(points.last(), 16f)
+                )
+            }
+        }
+    }
+
+    private fun perbaruiStatistikDariJalurJalan(routePoints: List<LatLng>) {
+        val totalDistanceKm = hitungJarakPolyline(routePoints)
+        val durationMs = if (routeEndTime > routeStartTime) {
+            routeEndTime - routeStartTime
+        } else {
+            0L
+        }
+
+        perbaruiStatistikDariJarak(totalDistanceKm, durationMs)
+    }
+
+    private fun perbaruiStatistikDariJarak(distanceKm: Double, durationMs: Long) {
+        val durationHours = durationMs.toDouble() / (1000.0 * 60.0 * 60.0)
+
+        jarakKm = distanceKm
+        durasiText = formatDuration(durationMs)
+
+        kecepatanKmh = if (durationHours > 0.0) {
+            distanceKm / durationHours
+        } else {
+            0.0
+        }
+
+        tampilkanStatistikKeLayout(
+            jarakKm = jarakKm,
+            kecepatanKmh = kecepatanKmh,
+            durasiText = durasiText
+        )
+    }
+
+    private fun hitungJarakPolyline(points: List<LatLng>): Double {
+        if (points.size < 2) return 0.0
 
         var total = 0.0
 
-        for (i in 0 until pathList.size - 1) {
-
-            total += distance(
-                pathList[i],
-                pathList[i + 1]
-            )
+        for (i in 0 until points.size - 1) {
+            total += distance(points[i], points[i + 1])
         }
 
         return total
     }
 
-    private fun distance(
-        start: LatLng,
-        end: LatLng
-    ): Double {
+    private fun hitungStatistikRute(points: List<GpsPoint>): RouteStats {
+        if (points.isEmpty()) {
+            return RouteStats(
+                jarakKm = 0.0,
+                kecepatanKmh = 0.0,
+                durasiText = "0 menit"
+            )
+        }
 
+        val sortedPoints = points.sortedBy { it.timestamp }
+
+        var totalDistanceKm = 0.0
+
+        for (i in 0 until sortedPoints.size - 1) {
+            val start = LatLng(sortedPoints[i].lat, sortedPoints[i].lng)
+            val end = LatLng(sortedPoints[i + 1].lat, sortedPoints[i + 1].lng)
+
+            totalDistanceKm += distance(start, end)
+        }
+
+        val startTime = sortedPoints.first().timestamp
+        val endTime = sortedPoints.last().timestamp
+
+        val durationMs = if (endTime > startTime) {
+            endTime - startTime
+        } else {
+            0L
+        }
+
+        val durationHours = durationMs.toDouble() / (1000.0 * 60.0 * 60.0)
+
+        val avgSpeedKmh = if (durationHours > 0.0) {
+            totalDistanceKm / durationHours
+        } else {
+            0.0
+        }
+
+        return RouteStats(
+            jarakKm = totalDistanceKm,
+            kecepatanKmh = avgSpeedKmh,
+            durasiText = formatDuration(durationMs)
+        )
+    }
+
+    private fun formatDuration(durationMs: Long): String {
+        if (durationMs <= 0L) {
+            return "0 menit"
+        }
+
+        val totalMinutes = durationMs / (1000 * 60)
+        val jam = totalMinutes / 60
+        val menit = totalMinutes % 60
+
+        return if (jam > 0) {
+            "%d jam %d menit".format(jam, menit)
+        } else {
+            "%d menit".format(menit)
+        }
+    }
+
+    private fun distance(start: LatLng, end: LatLng): Double {
         val radius = 6371.0
 
-        val dLat =
-            Math.toRadians(end.latitude - start.latitude)
+        val dLat = Math.toRadians(end.latitude - start.latitude)
+        val dLng = Math.toRadians(end.longitude - start.longitude)
 
-        val dLng =
-            Math.toRadians(end.longitude - start.longitude)
+        val a = sin(dLat / 2).pow(2) +
+                cos(Math.toRadians(start.latitude)) *
+                cos(Math.toRadians(end.latitude)) *
+                sin(dLng / 2).pow(2)
 
-        val a =
-            sin(dLat / 2).pow(2) +
-                    cos(Math.toRadians(start.latitude)) *
-                    cos(Math.toRadians(end.latitude)) *
-                    sin(dLng / 2).pow(2)
-
-        val c =
-            2 * atan2(sqrt(a), sqrt(1 - a))
-
-        return radius * c
+        return radius * 2 * atan2(sqrt(a), sqrt(1 - a))
     }
+
+    private fun getGpsPointFromTrackPoint(doc: DocumentSnapshot, trackDate: String): GpsPoint? {
+        val lat = getDoubleField(doc, "lat", "latitude")
+        val lng = getDoubleField(doc, "lng", "longitude")
+        val speed = getDoubleField(doc, "speed") ?: 0.0
+
+        var timestamp = getTimestampField(doc, "timestamp")
+
+        if (timestamp == 0L) {
+            timestamp = getTimestampField(doc, "time")
+        }
+
+        if (timestamp == 0L) {
+            timestamp = getTimestampField(doc, "createdAt")
+        }
+
+        if (timestamp == 0L) {
+            timestamp = parseTrackDateToMillis(trackDate)
+        }
+
+        if (timestamp > 0 && timestamp < 10000000000L) {
+            timestamp *= 1000
+        }
+
+        if (lat == null || lng == null || timestamp == 0L) {
+            return null
+        }
+
+        return GpsPoint(
+            lat = lat,
+            lng = lng,
+            timestamp = timestamp,
+            speed = speed
+        )
+    }
+
+    private fun getDoubleField(doc: DocumentSnapshot, vararg fieldNames: String): Double? {
+        for (fieldName in fieldNames) {
+            val value = doc.get(fieldName)
+
+            val result = when (value) {
+                is Number -> value.toDouble()
+                is String -> value.toDoubleOrNull()
+                else -> null
+            }
+
+            if (result != null) {
+                return result
+            }
+        }
+
+        return null
+    }
+
+    private fun getTimestampField(doc: DocumentSnapshot, fieldName: String): Long {
+        val value = doc.get(fieldName)
+
+        return when (value) {
+            is Timestamp -> value.toDate().time
+            is Date -> value.time
+            is Number -> value.toLong()
+            is String -> parseTimestampString(value)
+            else -> 0L
+        }
+    }
+
+    private fun parseTimestampString(value: String): Long {
+        val cleanValue = value.trim()
+
+        cleanValue.toLongOrNull()?.let {
+            return it
+        }
+
+        val patterns = listOf(
+            "dd/MM/yyyy HH:mm",
+            "dd-MM-yyyy HH:mm",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        )
+
+        for (pattern in patterns) {
+            try {
+                val sdf = SimpleDateFormat(pattern, Locale.getDefault())
+                val date = sdf.parse(cleanValue)
+
+                if (date != null) {
+                    return date.time
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        return 0L
+    }
+
+    private fun parseTrackDateToMillis(trackDate: String): Long {
+        return try {
+            formatTrackDoc.parse(trackDate)?.time ?: 0L
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    private fun ambilRuteOSRM(
+        startLat: Double,
+        startLng: Double,
+        endLat: Double,
+        endLng: Double,
+        onSuccess: (List<LatLng>, Double, Double) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val url =
+            "https://router.project-osrm.org/route/v1/driving/" +
+                    "$startLng,$startLat;$endLng,$endLat" +
+                    "?overview=full&geometries=polyline&steps=false"
+
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onError("Gagal terhubung ke OSRM: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!response.isSuccessful) {
+                        onError("Gagal mengambil rute OSRM. Kode: ${response.code}")
+                        return
+                    }
+
+                    val responseBody = response.body?.string()
+
+                    if (responseBody.isNullOrEmpty()) {
+                        onError("Respons OSRM kosong")
+                        return
+                    }
+
+                    try {
+                        val json = JSONObject(responseBody)
+                        val code = json.optString("code")
+
+                        if (code != "Ok") {
+                            onError("OSRM tidak menemukan rute")
+                            return
+                        }
+
+                        val routes = json.getJSONArray("routes")
+
+                        if (routes.length() == 0) {
+                            onError("Data rute OSRM kosong")
+                            return
+                        }
+
+                        val route = routes.getJSONObject(0)
+
+                        val geometry = route.getString("geometry")
+                        val distanceMeter = route.optDouble("distance", 0.0)
+                        val durationSecond = route.optDouble("duration", 0.0)
+
+                        val routePoints = PolyUtil.decode(geometry)
+
+                        val distanceKm = distanceMeter / 1000.0
+                        val durationMinute = durationSecond / 60.0
+
+                        onSuccess(routePoints, distanceKm, durationMinute)
+                    } catch (e: Exception) {
+                        onError("Gagal membaca respons OSRM: ${e.message}")
+                    }
+                }
+            }
+        })
+    }
+
+    data class GpsPoint(
+        val lat: Double,
+        val lng: Double,
+        val timestamp: Long,
+        val speed: Double = 0.0
+    )
+
+    data class RouteStats(
+        val jarakKm: Double,
+        val kecepatanKmh: Double,
+        val durasiText: String
+    )
 }

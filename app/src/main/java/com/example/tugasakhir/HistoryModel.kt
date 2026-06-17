@@ -3,8 +3,14 @@ package com.example.tugasakhir
 import com.google.firebase.Timestamp
 
 data class HistoryModel(
-    val lokasi: String = "",
-    val lat: Double = 0.0,
-    val lng: Double = 0.0,
-    val timestamp: Timestamp? = null
+    val lokasiAwal: String = "",
+    val lokasiAkhir: String = "",
+    val startLat: Double = 0.0,
+    val startLng: Double = 0.0,
+    val endLat: Double = 0.0,
+    val endLng: Double = 0.0,
+    val timestamp: Timestamp? = null,
+
+    val routeStartTime: Long = 0L,
+    val routeEndTime: Long = 0L
 )

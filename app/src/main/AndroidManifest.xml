@@ -19,7 +19,7 @@
         <!-- GOOGLE MAPS -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="ISI_API_KEY_KAMU"/>
+            android:value="AIzaSyD3XFQROY9JGirVooSGoONEflEkW0GeUz0"/>
 
         <!-- LOGIN -->
         <activity
