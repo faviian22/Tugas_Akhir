@@ -2,11 +2,22 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Internet dan jaringan -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Lokasi -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Foreground service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- Untuk Android 14+ jika foreground service memakai tipe dataSync -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- Untuk Android 13+ agar notifikasi bisa tampil -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -19,7 +30,7 @@
         <!-- GOOGLE MAPS -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyD3XFQROY9JGirVooSGoONEflEkW0GeUz0"/>
+            android:value="ISI_API_KEY_KAMU_DI_SINI" />
 
         <!-- LOGIN -->
         <activity
@@ -27,22 +38,43 @@
             android:exported="true">
 
             <intent-filter>
-
-                <action android:name="android.intent.action.MAIN"/>
-
-                <category android:name="android.intent.category.LAUNCHER"/>
-
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
         </activity>
 
         <!-- ACTIVITY -->
-        <activity android:name=".MainActivity"/>
-        <activity android:name=".RegisterActivity"/>
-        <activity android:name=".HistoryActivity"/>
-        <activity android:name=".DetailLocationActivity"/>
-        <activity android:name=".ProfileActivity"/>
-        <activity android:name=".EditProfileActivity"/>
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".DetailLocationActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".EditProfileActivity"
+            android:exported="false" />
+
+        <!-- SERVICE UNTUK MONITORING SENSOR -->
+        <service
+            android:name=".AlertMonitorService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
     </application>
 
